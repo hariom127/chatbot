@@ -1,0 +1,22 @@
+body { margin: 0; background: #f4f5f7; font-family: system-ui, sans-serif; color: #1c1e21; }
+.app { max-width: 760px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; padding: 16px; box-sizing: border-box; }
+header h1 { margin: 0 0 8px; font-size: 1.4rem; }
+.sync { display: flex; gap: 12px; align-items: center; }
+.syncmsg { display: block; margin-top: 6px; color: #555; }
+.chat { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 12px 0; }
+.hint { color: #777; text-align: center; margin-top: 3rem; }
+.msg { padding: 10px 14px; border-radius: 12px; max-width: 85%; white-space: pre-wrap; line-height: 1.45; }
+.msg p { margin: 0; }
+.msg.user { align-self: flex-end; background: #2563eb; color: #fff; }
+.msg.bot { align-self: flex-start; background: #fff; border: 1px solid #e0e2e6; }
+.msg.notfound { background: #fff8e1; border-color: #f1d98a; }
+.msg.error { background: #fdecea; border-color: #f0b4ae; }
+.msg.loading { color: #777; font-style: italic; }
+.sources { margin-top: 8px; font-size: 0.85rem; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.sources a { background: #eef2ff; padding: 2px 8px; border-radius: 8px; color: #1d4ed8; text-decoration: none; }
+.sources a:hover { text-decoration: underline; }
+form { display: flex; gap: 8px; }
+input { flex: 1; padding: 10px 12px; border: 1px solid #c8cbd0; border-radius: 8px; font-size: 1rem; }
+button { padding: 8px 16px; border: 0; border-radius: 8px; background: #2563eb; color: #fff; cursor: pointer; font-size: 0.95rem; }
+button:disabled { background: #9db6ea; cursor: not-allowed; }
+.error button { margin-top: 8px; }
