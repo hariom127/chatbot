@@ -137,7 +137,7 @@ Tests use temporary folders and mocks for Google Drive and the LLM. They do not 
 - **Google login stopped working after a week** → OAuth apps in "Testing" expire refresh tokens after 7 days; re-run the auth script.
 - **"OpenAI rejected the API key"** → `OPENAI_API_KEY=` must be followed directly by the key (`sk-...`), with no placeholder text, quotes or spaces.
 - **"Modal credentials are missing"** → fill `MODAL_PROXY_TOKEN_ID` / `MODAL_PROXY_TOKEN_SECRET` in `backend/.env` and restart the backend.
-- **Answers always say "could not find"** → sync first; if still failing, raise `MAX_DISTANCE` (e.g. 0.9) in `.env`.
+- **Answers always say "I don't have enough information"** → sync first; if still failing, raise `MAX_DISTANCE` (e.g. 0.9) in `.env`.
 - **Frontend says it cannot reach the backend** → make sure uvicorn runs on port 8000 and `CORS_ORIGINS` includes the frontend URL.
 - **Chat is slow** → the high-reasoning Qwen model can take a while; raise `LLM_TIMEOUT_SECONDS` if requests time out.
 

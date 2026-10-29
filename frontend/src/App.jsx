@@ -6,6 +6,17 @@ import Message, { Thinking } from "./components/Message";
 import Composer from "./components/Composer";
 import { MenuIcon, SyncIcon } from "./components/icons";
 
+const HISTORY_MESSAGES = 6;
+
+// Recent answered turns for follow-up questions; errors and unanswered questions are left out
+function toHistory(messages) {
+  const turns = messages.filter((m) => !m.error);
+  while (turns.length && turns[turns.length - 1].role === "user") turns.pop();
+  return turns
+    .slice(-HISTORY_MESSAGES)
+    .map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.text.slice(0, 4000) }));
+}
+
 export default function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -20,10 +31,10 @@ export default function App() {
   useEffect(() => { refreshStatus(); }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
-  async function ask(question) {
+  async function ask(question, previous) {
     setLoading(true);
     try {
-      const res = await askQuestion(question);
+      const res = await askQuestion(question, toHistory(previous));
       setMessages((m) => [...m, { role: "bot", text: res.answer, found: res.found, sources: res.sources }]);
     } catch (err) {
       setMessages((m) => [...m, { role: "bot", error: err.message, question }]);
@@ -38,12 +49,12 @@ export default function App() {
     if (!q || loading) return;
     setInput("");
     setMessages((m) => [...m, { role: "user", text: q }]);
-    ask(q);
+    ask(q, messages);
   }
 
   function retry(question) {
     setMessages((m) => m.filter((x) => !(x.error && x.question === question)));
-    ask(question);
+    ask(question, messages);
   }
 
   async function sync() {

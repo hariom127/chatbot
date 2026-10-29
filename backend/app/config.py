@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     top_k: int = 4
     # Chroma cosine distance: 0 = identical, 2 = opposite. Chunks farther than this are dropped.
     max_distance: float = 0.75
+    # Earlier messages (user + assistant) sent to the LLM for follow-up questions. 0 = no history.
+    chat_history_max_messages: int = 6
 
     # LLM
     llm_provider: str = "modal"  # modal | openai | groq | gemini | custom

@@ -15,11 +15,11 @@ async function request(path, options) {
   return data;
 }
 
-export const askQuestion = (question) =>
+export const askQuestion = (question, history = []) =>
   request("/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, history }),
   });
 
 export const syncDocuments = () => request("/sync", { method: "POST" });

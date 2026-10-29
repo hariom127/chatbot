@@ -1,4 +1,5 @@
 import { DocIcon, RetryIcon } from "./icons";
+import Markdown from "./Markdown";
 
 function BotAvatar() {
   return (
@@ -57,7 +58,7 @@ export default function Message({ msg, onRetry }) {
         className={`max-w-[85%] rounded-2xl rounded-tl-md px-4 py-3 text-[15px] leading-relaxed shadow-card
           ${msg.found ? "bg-white text-gray-800" : "border border-amber-200 bg-amber-50 text-amber-900"}`}
       >
-        <p className="whitespace-pre-wrap">{msg.text}</p>
+        <Markdown text={msg.text} />
         {msg.sources?.length > 0 && (
           <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 text-xs">
             <span className="font-medium text-muted">Sources:</span>
