@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     semantic_small_talk_threshold: float = 0.65  # calibrated for all-MiniLM-L6-v2 and text-embedding-3-small
     semantic_small_talk_margin: float = 0.10
     semantic_small_talk_max_words: int = 6
+    # Abusive-only messages get a polite reply (naming project_name); abuse mixed into a question is removed
+    abusive_language_filter_enabled: bool = True
 
     @property
     def resolved_embedding_provider(self) -> str:

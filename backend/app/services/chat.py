@@ -1,5 +1,5 @@
 from app.config import settings
-from app.services import conversational, llm
+from app.services import conversational, llm, moderation
 from app.services.retrieval import retrieve
 
 NOT_FOUND_ANSWER = "I could not find this information in the indexed documents."
@@ -29,6 +29,12 @@ def _sources(hits: list[dict]) -> list[dict]:
 
 
 def answer_question(question: str) -> dict:
+    if settings.abusive_language_filter_enabled:
+        check = moderation.check_message(question)
+        if check.abusive_only:
+            return moderation.moderation_reply()
+        question = check.question
+
     if settings.conversational_replies_enabled:
         reply = conversational.conversational_reply(question)
         if reply is not None:

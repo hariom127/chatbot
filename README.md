@@ -84,6 +84,9 @@ Two layers detect small talk. Exact phrase rules come first. If they don't match
 | `SEMANTIC_SMALL_TALK_THRESHOLD` | `0.65` | Minimum similarity to a small-talk example. |
 | `SEMANTIC_SMALL_TALK_MARGIN` | `0.10` | How far the message must score above the closest real-question example. |
 | `SEMANTIC_SMALL_TALK_MAX_WORDS` | `6` | Longer messages skip the semantic fallback. |
+| `ABUSIVE_LANGUAGE_FILTER_ENABLED` | `true` | Abusive messages get a polite reply that names `PROJECT_NAME`. |
+
+Abusive messages ("you are useless", "f*ck off") get a polite reply without searching the documents or calling any model. If the message also asks a real question ("You stupid bot, what is an invoice?"), the abuse is removed and the question is answered as usual. Insults count only when aimed at the assistant, and words in quotes or in a question about the word itself ("What does 'idiot' mean?") are left alone. The rules are in `backend/app/services/moderation.py`.
 
 Restart the backend after changing these settings. The threshold and margin were calibrated for `all-MiniLM-L6-v2` and `text-embedding-3-small`. After switching to another embedding model, recalibrate:
 
