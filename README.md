@@ -173,3 +173,9 @@ Tests use temporary folders and mocks for Google Drive and the LLM. They do not 
 ## Secrets
 
 `.env` files, `credentials.json`, `token.json`, and the `backend/data/` ChromaDB folder are git-ignored. Never commit them.
+
+
+
+cd backend
+source .venv/bin/activate
+uvicorn app.main:app --reload
