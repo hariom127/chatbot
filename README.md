@@ -70,6 +70,32 @@ Switching providers only means editing `.env` and restarting; retrieval code is 
 
 The embedding model is independent of the answer model. Each embedding model gets its own ChromaDB collection, so after changing it just click **Sync documents** and everything is re-indexed. You may need to tune `MAX_DISTANCE` per embedding model.
 
+### Greetings and small talk
+
+Greetings, thanks, goodbyes, "how are you", "what can you do" and short acknowledgements ("ok", "got it") get an instant friendly reply that names your project. They never search the documents or call the answer model. Any real question, including one that starts with "Hi", is answered from the documents as usual.
+
+Two layers detect small talk. Exact phrase rules come first. If they don't match, a semantic fallback compares short messages (no digits, up to `SEMANTIC_SMALL_TALK_MAX_WORDS` words) with example phrases, using the same embedding model as retrieval. When in doubt, the message goes to RAG.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `PROJECT_NAME` | empty | Name used in replies ("Ask me anything about Acme Portal."). Empty means replies say "this project". |
+| `CONVERSATIONAL_REPLIES_ENABLED` | `true` | Master switch. `false` sends every message to RAG. |
+| `SEMANTIC_SMALL_TALK_ENABLED` | `true` | Turns the semantic fallback on or off. The phrase rules keep working when it is off. |
+| `SEMANTIC_SMALL_TALK_THRESHOLD` | `0.65` | Minimum similarity to a small-talk example. |
+| `SEMANTIC_SMALL_TALK_MARGIN` | `0.10` | How far the message must score above the closest real-question example. |
+| `SEMANTIC_SMALL_TALK_MAX_WORDS` | `6` | Longer messages skip the semantic fallback. |
+
+Restart the backend after changing these settings. The threshold and margin were calibrated for `all-MiniLM-L6-v2` and `text-embedding-3-small`. After switching to another embedding model, recalibrate:
+
+```bash
+cd backend && source .venv/bin/activate
+python -m app.scripts.calibrate_small_talk
+```
+
+The script prints scores for a set of probe messages and sweeps threshold and margin values. Pick the lowest values that give zero false positives and leave room above the "tricky" probes. A miss only means the message gets today's "could not find" answer, but a false positive would swallow a real question.
+
+With OpenAI embeddings, a short message that the rules miss costs one extra small embedding request. The example phrases are embedded once per backend process.
+
 ## 4. Frontend setup
 
 ```bash

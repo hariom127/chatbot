@@ -7,6 +7,7 @@ import unicodedata
 from functools import cache
 
 from app.config import settings
+from app.services import conversational_semantic
 
 logger = logging.getLogger(__name__)
 
@@ -133,10 +134,6 @@ def classify_conversational_intent(message: str) -> str | None:
     return next(i for i in PRIORITY if i in intents)
 
 
-def _semantic_intent(message: str) -> str | None:
-    return None  # the semantic fallback is not connected yet
-
-
 def _log_once(key: str, level: int, msg: str, *args) -> None:
     if key not in _logged_once:
         _logged_once.add(key)
@@ -182,16 +179,20 @@ def _pick_variant(intent: str) -> str:
 def conversational_reply(message: str) -> dict | None:
     """A full chat response for small talk, or None to let RAG answer. Never raises."""
     try:
-        layer = "rule"
         intent = classify_conversational_intent(message)
+        match = None
         if intent is None:
-            layer = "semantic"
-            intent = _semantic_intent(message)
-        if intent is None:
-            return None
+            match = conversational_semantic.semantic_intent(message)
+            if match is None:
+                return None
+            intent = match.intent
         answer = render_reply(_pick_variant(intent), salutation(message))
     except Exception:
         logger.exception("Small-talk check failed; falling back to RAG")
         return None
-    logger.info("Small-talk reply: intent=%s layer=%s", intent, layer)
+    if match is None:
+        logger.info("Small-talk reply: intent=%s layer=rule", intent)
+    else:
+        logger.info("Small-talk reply: intent=%s layer=semantic score=%.2f margin=%.2f",
+                    intent, match.score, match.margin)
     return {"answer": answer, "found": True, "sources": [], "snippets": []}

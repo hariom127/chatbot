@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     project_name: str = ""
     conversational_replies_enabled: bool = True
     semantic_small_talk_enabled: bool = True
-    semantic_small_talk_threshold: float = 0.75
+    semantic_small_talk_threshold: float = 0.65  # calibrated for all-MiniLM-L6-v2 and text-embedding-3-small
     semantic_small_talk_margin: float = 0.10
     semantic_small_talk_max_words: int = 6
 

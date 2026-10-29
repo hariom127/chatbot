@@ -3,6 +3,12 @@ import pytest
 from app.config import settings
 
 
+@pytest.fixture(autouse=True)
+def semantic_small_talk_off(monkeypatch):
+    """The semantic small-talk layer embeds text; tests that need it turn it on themselves."""
+    monkeypatch.setattr(settings, "semantic_small_talk_enabled", False)
+
+
 @pytest.fixture
 def tmp_settings(tmp_path, monkeypatch):
     """Point Chroma and sync state at a temp dir so tests never touch real data."""
