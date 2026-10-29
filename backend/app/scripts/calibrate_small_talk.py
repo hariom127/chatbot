@@ -20,6 +20,8 @@ MUST_GO_TO_RAG = [
     "how are due dates set", "can I edit a sent invoice", "what is overtime", "what is per diem",
     "hello what does past due mean", "explain minimum billable", "what is the rush fee",
     "show me outstanding invoices", "how do I add mileage", "what is group by", "who are the clients",
+    "great wall of china", "morning news headlines", "perfect square definition", "ok corral shootout",
+    "hola, what's the weather?",
 ]
 TRICKY = [
     "help with invoices", "ok so what is the total", "good question", "morning shift timings", "what is this",
@@ -49,7 +51,8 @@ def main() -> None:
         rows = []
         for probe in probes:
             rule = conversational.classify_conversational_intent(probe)
-            scores = None if rule else conversational_semantic.score(probe)
+            # like the app: semantic matching sees the text after any greeting prefix
+            scores = None if rule else conversational_semantic.score(conversational.strip_greeting_prefix(probe))
             rows.append((rule, scores))
             if rule:
                 print(f"{probe:40} {'rule':9} {rule:16} {'':>6} {'':>6} {'':>6}  yes")

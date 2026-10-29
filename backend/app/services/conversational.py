@@ -20,20 +20,28 @@ PRIORITY = ["capabilities", "farewell", "gratitude", "how_are_you", "time_greeti
 
 # Each pattern must match a whole run of normalized words; repeated letters are allowed where shown.
 PHRASES = {
-    "greeting": [r"h+i+", r"he+l+o+", r"he+y+", "hiya", "howdy", "greetings", "namaste", "namaskar", "yo"],
-    "time_greeting": [r"(?:good )?(?:morning|afternoon|evening)"],
+    "greeting": [r"h+i+", r"he+l+o+", r"he+y+", "hiya", "howdy", "hola", "greetings", "namaste", "namaskar",
+                 r"yo+"],
+    "time_greeting": [r"good (?:morning|afternoon|evening|day)", "morning|afternoon|evening"],
     "gratitude": [
-        r"thanks+(?: (?:a lot|so much|very much))?", r"thank (?:you|u)(?: (?:so much|very much))?",
+        r"thanks+(?: (?:a lot|so much|very much))?", r"thank ?(?:you|u)(?: (?:so much|very much))?",
         "thx", "ty", "much appreciated", "appreciate it",
     ],
     "farewell": [
-        r"bye+(?: bye+)?", r"good ?bye+", r"see (?:you|ya|u)(?: (?:later|soon))?",
+        r"bye+(?: bye+)?", r"good ?bye+", r"see (?:you|ya|u)(?: (?:later|soon))?", "cya", "farewell",
         "talk to you later", "ttyl", "good night", "take care",
     ],
-    "how_are_you": ["how are you(?: doing)?", "how r u", "hows it going", "whats up", "sup"],
+    "how_are_you": ["how are you(?: doing)?", "how r u", "hows it going", "whats ?up", r"wa+s+u+p+", r"su+p+"],
     "capabilities": ["what can you do", "who are you", "what are you", "help", "what do you do"],
-    "acknowledgement": ["ok", "okay", "k", "cool", "great", "nice", "got it", "alright", "perfect"],
+    "acknowledgement": [
+        "ok", "okay", "k", "cool", "great", "nice", "got it", "alright", "perfect", "understood", "sure",
+        "yes", "yeah", "yep", "no", "nope", r"h+m+",
+    ],
 }
+# Only these may be stripped from the front of a question ("Hola, what's the weather?").
+_PREFIX_INTENTS = {"greeting", "time_greeting"}
+# The prefix must end in punctuation, so content queries like "morning news headlines" keep their first word.
+_SEPARATED_PREFIX = re.compile(r"\s*([^,!.;:–—-]{1,40}?)\s*[,!.;:–—-]+\s*")
 FILLERS = {"there", "all", "everyone", "team", "bot", "chatbot", "assistant", "buddy", "friend", "again"}
 _MAX_PHRASE_WORDS = 4
 _PATTERNS = {intent: re.compile("|".join(f"(?:{p})" for p in pats)) for intent, pats in PHRASES.items()}
@@ -81,7 +89,7 @@ REPLIES = {
     ],
 }
 _PLACEHOLDER = re.compile(r"\{(project|salutation)\}")
-_TIME_WORDS = ("morning", "afternoon", "evening")
+_TIME_GREETING = re.compile(r"\bgood (day)\b|\b(morning|afternoon|evening)\b")
 
 # Rotation state is per process: the backend has no conversation id.
 _rng = random.Random()
@@ -134,6 +142,27 @@ def classify_conversational_intent(message: str) -> str | None:
     return next(i for i in PRIORITY if i in intents)
 
 
+def _is_greeting_prefix(text: str) -> bool:
+    words = normalize(text).split()
+    intents = _match_intents(words) if words else None
+    return bool(intents) and intents <= _PREFIX_INTENTS
+
+
+def strip_greeting_prefix(message: str) -> str:
+    """The message without leading greetings ("Hi, good morning! What is X?" -> "What is X?"). Never raises."""
+    try:
+        text = message
+        while (m := _SEPARATED_PREFIX.match(text)) and _is_greeting_prefix(m.group(1)):
+            rest = text[m.end():]
+            if not re.search(r"\w", rest):
+                break
+            text = rest
+        return text
+    except Exception:
+        logger.exception("Greeting prefix check failed; using the full message")
+        return message
+
+
 def _log_once(key: str, level: int, msg: str, *args) -> None:
     if key not in _logged_once:
         _logged_once.add(key)
@@ -154,11 +183,8 @@ def project_name() -> str:
 
 def salutation(message: str) -> str:
     """Echo the user's own time greeting; the server clock may be in another time zone."""
-    words = normalize(message).split()
-    for word in _TIME_WORDS:
-        if word in words:
-            return f"Good {word}"
-    return "Hello"
+    m = _TIME_GREETING.search(normalize(message))
+    return f"Good {m.group(1) or m.group(2)}" if m else "Hello"
 
 
 def render_reply(template: str, salutation_text: str = "Hello") -> str:
@@ -182,7 +208,8 @@ def conversational_reply(message: str) -> dict | None:
         intent = classify_conversational_intent(message)
         match = None
         if intent is None:
-            match = conversational_semantic.semantic_intent(message)
+            # after a greeting prefix, only the rest decides ("Hi, many thanks" vs "Hi, what is X?")
+            match = conversational_semantic.semantic_intent(strip_greeting_prefix(message))
             if match is None:
                 return None
             intent = match.intent

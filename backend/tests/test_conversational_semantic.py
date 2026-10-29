@@ -121,6 +121,11 @@ def test_project_name_questions_are_not_small_talk(fake, monkeypatch):
         assert conversational.conversational_reply(m) is None
 
 
+def test_semantic_runs_on_text_after_greeting(fake):
+    assert conversational.conversational_reply("Hello, many thanks")["found"] is True
+    assert conversational.conversational_reply("hola, what's the weather?") is None
+
+
 def test_semantic_match_skips_rag(fake, monkeypatch):
     monkeypatch.setattr(chat_service, "retrieve", lambda q: pytest.fail("retrieve must not be called"))
     monkeypatch.setattr(llm, "generate", lambda m: pytest.fail("LLM must not be called"))
@@ -161,6 +166,8 @@ def test_real_model_small_talk(message, intent):
 @pytest.mark.parametrize("message", [
     "what is an invoice", "hi can you explain invoice statuses", "how do refunds work", "help with invoices",
     "what is this", "who are the clients", "good question",
+    "great wall of china", "morning news headlines", "perfect square definition", "ok corral shootout",
+    "what's the weather?",
 ])
 def test_real_model_questions_go_to_rag(message):
     assert semantic_intent(message) is None

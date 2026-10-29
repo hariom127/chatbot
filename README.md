@@ -72,7 +72,7 @@ The embedding model is independent of the answer model. Each embedding model get
 
 ### Greetings and small talk
 
-Greetings, thanks, goodbyes, "how are you", "what can you do" and short acknowledgements ("ok", "got it") get an instant friendly reply that names your project. They never search the documents or call the answer model. Any real question, including one that starts with "Hi", is answered from the documents as usual.
+Greetings, thanks, goodbyes, "how are you", "what can you do" and short acknowledgements ("ok", "got it") get an instant friendly reply that names your project. They never search the documents or call the answer model. Any real question is answered from the documents as usual. A leading greeting followed by punctuation is removed first, so "Hola, what's the weather?" is searched as "what's the weather?". Without that punctuation the message is left as it is, so content queries like "morning news headlines" keep their first word.
 
 Two layers detect small talk. Exact phrase rules come first. If they don't match, a semantic fallback compares short messages (no digits, up to `SEMANTIC_SMALL_TALK_MAX_WORDS` words) with example phrases, using the same embedding model as retrieval. When in doubt, the message goes to RAG.
 

@@ -33,6 +33,7 @@ def answer_question(question: str) -> dict:
         reply = conversational.conversational_reply(question)
         if reply is not None:
             return reply
+        question = conversational.strip_greeting_prefix(question)
 
     hits = retrieve(question)
     if not hits:

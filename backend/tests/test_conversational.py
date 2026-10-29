@@ -53,19 +53,22 @@ def test_normalize(raw, expected):
 # --- rules ---
 
 @pytest.mark.parametrize("intent,messages", [
-    ("greeting", ["hi", "Hiiii", "hhiii", "hello", "hellooo", "HELLO!!", "hey", "heyyy", "hiya", "howdy",
-                  "greetings", "namaste", "namaskar", "yo", "hello team", "Hi there!!!", "hey 👋", "hi hi"]),
-    ("time_greeting", ["good morning", "Good   Morning", "good afternoon", "good evening", "morning",
-                       "afternoon", "evening", "good morning everyone"]),
-    ("gratitude", ["thanks", "thanksss", "thank you", "thank u", "thanks a lot", "thanks so much",
-                   "thanks very much", "thank you so much", "thank you very much", "thx", "ty",
-                   "much appreciated", "appreciate it", "Thanks bot!"]),
-    ("farewell", ["bye", "byeee", "bye bye", "goodbye", "good bye", "see you", "see ya", "see u",
-                  "see you later", "see ya soon", "talk to you later", "ttyl", "good night", "take care"]),
-    ("how_are_you", ["how are you", "how r u", "how are you doing", "how's it going", "what's up", "sup",
-                     "How are you?"]),
+    ("greeting", ["hi", "Hi", "hii", "Hiiii", "hhiii", "hello", "hellooo", "HELLO!!", "hey", "heyy", "heyyy",
+                  "hiya", "howdy", "Howdy!", "hola", "HOLA", "greetings", "namaste", "namaskar", "yo", "yooo",
+                  "hello team", "Hi there!!!", "hey 👋", "hi hi", "  hii  "]),
+    ("time_greeting", ["good morning", "Good   Morning", "good afternoon", "good evening", "Good day",
+                       "good day!", "morning", "afternoon", "evening", "good morning everyone"]),
+    ("gratitude", ["thanks", "thanksss", "thank you", "thank-you", "Thank-You!", "thankyou", "thank u",
+                   "thanks a lot", "thanks so much", "thanks very much", "thank you so much",
+                   "thank you very much", "thx", "ty", "much appreciated", "appreciate it", "Thanks bot!"]),
+    ("farewell", ["bye", "byeee", "bye bye", "goodbye", "good bye", "see you", "see ya", "See ya!", "see u",
+                  "see you later", "see ya soon", "talk to you later", "ttyl", "cya", "farewell", "Farewell!",
+                  "good night", "Good night!", "take care"]),
+    ("how_are_you", ["how are you", "how r u", "how are you doing", "how's it going", "what's up", "whatsup",
+                     "sup", "Sup?", "wassup", "wasssup", "How are you?"]),
     ("capabilities", ["what can you do", "who are you", "what are you", "help", "what do you do", "Help!"]),
-    ("acknowledgement", ["ok", "okay", "k", "cool", "great", "nice", "got it", "alright", "perfect", "OK!"]),
+    ("acknowledgement", ["ok", "okay", "k", "cool", "great", "nice", "got it", "alright", "perfect", "OK!",
+                         "understood", "sure", "yes", "yeah", "yep", "no", "nope", "hmm", "Hmmm..."]),
 ])
 def test_phrase_families(intent, messages):
     for m in messages:
@@ -88,9 +91,34 @@ def test_priority(message, intent):
     "What does hello mean in this document?", "Explain invoice statuses", "him", "this",
     "history of the company", "thirty", "good", "morning shift policy", "bye-laws of the company",
     "help me with invoices", "", "   ", "hi " * 30,
+    "great wall of china", "morning news headlines", "perfect square definition", "ok corral shootout",
+    "good day trading", "no deposit policy", "yes bank invoices", "hola, what's the weather?",
 ])
 def test_real_questions_are_not_small_talk(message):
     assert classify_conversational_intent(message) is None
+
+
+@pytest.mark.parametrize("message,expected", [
+    ("hola, what's the weather?", "what's the weather?"),
+    ("Hi, what is an invoice?", "what is an invoice?"),
+    ("HELLO!!  Explain invoice statuses", "Explain invoice statuses"),
+    ("hey there - how do refunds work", "how do refunds work"),
+    ("Good morning. What is a draft invoice?", "What is a draft invoice?"),
+    ("Hi, good afternoon! Who approves orders?", "Who approves orders?"),
+    ("Namaste: what is the late fee", "what is the late fee"),
+    # no greeting prefix, or no punctuation after it: unchanged
+    ("Thanks, can you explain draft invoices?", "Thanks, can you explain draft invoices?"),
+    ("ok, what is the total", "ok, what is the total"),
+    ("hi can you explain invoice statuses", "hi can you explain invoice statuses"),
+    ("morning news headlines", "morning news headlines"),
+    ("Morning shift policy, explained", "Morning shift policy, explained"),
+    ("What does hello mean in this document?", "What does hello mean in this document?"),
+    ("great wall of china", "great wall of china"),
+    ("Hi!!!", "Hi!!!"),
+    ("hey, 👋", "hey, 👋"),
+])
+def test_strip_greeting_prefix(message, expected):
+    assert conversational.strip_greeting_prefix(message) == expected
 
 
 def test_project_name_is_not_small_talk(monkeypatch):
@@ -115,7 +143,7 @@ def test_single_variant_intent(monkeypatch):
 
 
 @pytest.mark.parametrize("message,prefix", [("good evening", "Good evening!"), ("Good Morning!!", "Good morning!"),
-                                            ("afternoon", "Good afternoon!")])
+                                            ("afternoon", "Good afternoon!"), ("Good day", "Good day!")])
 def test_time_greeting_echoes_user(message, prefix):
     assert conversational.conversational_reply(message)["answer"].startswith(prefix)
 
@@ -189,7 +217,8 @@ def test_message_text_not_logged(caplog):
 
 # --- routing through POST /chat ---
 
-@pytest.mark.parametrize("question", ["Hi", "Good morning", "Thank you", "Bye", "ok", "what can you do"])
+@pytest.mark.parametrize("question", ["Hi", "Good morning", "Thank you", "Bye", "ok", "what can you do",
+                                      "wassup", "hola", "Good day", "Good night", "cya", "thank-you", "hmm"])
 def test_small_talk_skips_rag(no_rag, question):
     r = client.post("/chat", json={"question": question})
     assert r.status_code == 200
@@ -198,13 +227,31 @@ def test_small_talk_skips_rag(no_rag, question):
     assert body["answer"]
 
 
-def test_greeting_with_question_goes_to_rag(monkeypatch):
-    seen = []
+def test_greeting_prefix_is_stripped_before_rag(monkeypatch):
+    seen, prompts = [], []
     monkeypatch.setattr(chat_service, "retrieve", lambda q: seen.append(q) or [HIT])
-    monkeypatch.setattr(llm, "generate", lambda m: "Invoices are monthly.")
+    monkeypatch.setattr(llm, "generate", lambda m: prompts.append(m) or "Invoices are monthly.")
     body = client.post("/chat", json={"question": "Hi, what is an invoice?"}).json()
-    assert seen == ["Hi, what is an invoice?"]
+    assert seen == ["what is an invoice?"]
+    assert prompts[0][1]["content"].endswith("Question: what is an invoice?")
     assert body["sources"] == [{"title": "Invoices", "url": "http://doc/inv"}]
+
+
+@pytest.mark.parametrize("question", ["great wall of china", "morning news headlines", "perfect square definition",
+                                      "ok corral shootout"])
+def test_content_queries_reach_rag_unchanged(monkeypatch, question):
+    seen = []
+    monkeypatch.setattr(chat_service, "retrieve", lambda q: seen.append(q) or [])
+    body = client.post("/chat", json={"question": question}).json()
+    assert seen == [question] and body["found"] is False
+
+
+def test_prefix_not_stripped_when_master_flag_off(monkeypatch):
+    seen = []
+    monkeypatch.setattr(settings, "conversational_replies_enabled", False)
+    monkeypatch.setattr(chat_service, "retrieve", lambda q: seen.append(q) or [])
+    client.post("/chat", json={"question": "Hi, what is an invoice?"})
+    assert seen == ["Hi, what is an invoice?"]
 
 
 def test_master_flag_off_sends_hi_to_rag(monkeypatch):
