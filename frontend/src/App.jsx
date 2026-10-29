@@ -1,35 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { askQuestion, getSyncStatus, syncDocuments } from "./api";
-import "./App.css";
-
-function Message({ msg, onRetry }) {
-  if (msg.role === "user") {
-    return <div className="msg user">{msg.text}</div>;
-  }
-  if (msg.error) {
-    return (
-      <div className="msg bot error">
-        <p>{msg.error}</p>
-        <button onClick={() => onRetry(msg.question)}>Retry</button>
-      </div>
-    );
-  }
-  return (
-    <div className={"msg bot" + (msg.found ? "" : " notfound")}>
-      <p>{msg.text}</p>
-      {msg.sources?.length > 0 && (
-        <div className="sources">
-          Sources:{" "}
-          {msg.sources.map((s) => (
-            <a key={s.url} href={s.url} target="_blank" rel="noreferrer">
-              {s.title}
-            </a>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+import logoUrl from "./assets/appinventiv-logo.png";
+import Sidebar, { Logo } from "./components/Sidebar";
+import Message, { Thinking } from "./components/Message";
+import Composer from "./components/Composer";
+import { MenuIcon, SyncIcon } from "./components/icons";
 
 export default function App() {
   const [messages, setMessages] = useState([]);
@@ -38,6 +13,7 @@ export default function App() {
   const [syncMsg, setSyncMsg] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [status, setStatus] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const bottomRef = useRef(null);
 
   const refreshStatus = () => getSyncStatus().then(setStatus).catch(() => setStatus(null));
@@ -88,38 +64,70 @@ export default function App() {
     }
   }
 
+  const statusText = status?.last_sync
+    ? `Last sync: ${new Date(status.last_sync).toLocaleString()} (${status.indexed_documents} docs)`
+    : "Not synced yet";
+
   return (
-    <main className="app">
-      <header>
-        <h1>Drive Chatbot</h1>
-        <div className="sync">
-          <button onClick={sync} disabled={syncing}>{syncing ? "Syncing…" : "Sync documents"}</button>
-          <small>
-            {status?.last_sync
-              ? `Last sync: ${new Date(status.last_sync).toLocaleString()} (${status.indexed_documents} docs)`
-              : "Not synced yet"}
-          </small>
+    <div className="flex h-full overflow-hidden">
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      <main className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center gap-3 px-4 pb-2 pt-4 sm:px-8 sm:pt-6">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="rounded-full bg-white p-2 text-gray-700 shadow-card lg:hidden"
+            aria-label="Open sidebar"
+          >
+            <MenuIcon />
+          </button>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-lg font-semibold sm:text-xl">
+              <span className="lg:hidden"><Logo /></span>
+              <span className="hidden lg:inline">Drive Chatbot</span>
+            </h1>
+            <p className="hidden truncate text-xs text-muted sm:block">{statusText}</p>
+          </div>
+          <button
+            onClick={sync}
+            disabled={syncing}
+            className="flex items-center gap-2 rounded-full bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-brand-100"
+          >
+            <SyncIcon className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">{syncing ? "Syncing…" : "Sync documents"}</span>
+          </button>
+        </header>
+
+        <div className="px-4 sm:px-8">
+          <p className="truncate text-xs text-muted sm:hidden">{statusText}</p>
+          {syncMsg && (
+            <p className="mt-2 rounded-2xl bg-white px-4 py-2 text-xs text-gray-600 shadow-card">{syncMsg}</p>
+          )}
         </div>
-        {syncMsg && <small className="syncmsg">{syncMsg}</small>}
-      </header>
 
-      <section className="chat">
-        {messages.length === 0 && <p className="hint">Sync your documents, then ask a question about them.</p>}
-        {messages.map((m, i) => <Message key={i} msg={m} onRetry={retry} />)}
-        {loading && <div className="msg bot loading">Thinking…</div>}
-        <div ref={bottomRef} />
-      </section>
+        <section className="flex-1 overflow-y-auto px-4 py-6 sm:px-8">
+          <div className="mx-auto flex min-h-full max-w-3xl flex-col gap-5">
+            {messages.length === 0 && (
+              <div className="my-auto text-center">
+                <img
+                  src={logoUrl}
+                  alt="Appinventiv"
+                  className="mx-auto mb-5 h-28 w-28 rounded-3xl shadow-card sm:h-32 sm:w-32"
+                />
+                <h2 className="mb-1 text-xl font-semibold">Appinventiv</h2>
+                <p className="text-muted">Sync your documents, then ask a question about them.</p>
+              </div>
+            )}
+            {messages.map((m, i) => <Message key={i} msg={m} onRetry={retry} />)}
+            {loading && <Thinking />}
+            <div ref={bottomRef} />
+          </div>
+        </section>
 
-      <form onSubmit={send}>
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about your documents…"
-          maxLength={2000}
-          disabled={loading}
-        />
-        <button type="submit" disabled={loading || !input.trim()}>Send</button>
-      </form>
-    </main>
+        <div className="px-4 pb-4 sm:px-8 sm:pb-6">
+          <Composer value={input} onChange={setInput} onSubmit={send} loading={loading} />
+        </div>
+      </main>
+    </div>
   );
 }
