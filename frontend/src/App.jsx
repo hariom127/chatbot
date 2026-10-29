@@ -95,7 +95,7 @@ export default function App() {
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-semibold sm:text-xl">
               <span className="lg:hidden"><Logo /></span>
-              <span className="hidden lg:inline">Drive Chatbot</span>
+              <span className="hidden lg:inline">ReelTrak Chatbot</span>
             </h1>
             <p className="hidden truncate text-xs text-muted sm:block">{statusText}</p>
           </div>
