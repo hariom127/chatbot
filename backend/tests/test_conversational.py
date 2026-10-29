@@ -1,3 +1,4 @@
+import json
 import logging
 import random
 import re
@@ -9,14 +10,17 @@ from app.config import settings
 from app.main import app
 from app.services import chat as chat_service
 from app.services import conversational, llm
-from app.services.conversational import REPLIES, classify_conversational_intent, normalize, render_reply
+from app.services.conversational import classify_conversational_intent, knowledge_base, normalize, render_reply
 
 client = TestClient(app)
 
 HIT = {"text": "Invoices are monthly.", "title": "Invoices", "url": "http://doc/inv",
        "doc_id": "inv", "chunk_index": 0, "distance": 0.2}
 SAMPLE_NAME = "Acme Portal"
-ALL_TEMPLATES = [(intent, t) for intent, variants in REPLIES.items() for t in variants]
+KB = knowledge_base()
+SHIPPED_PATH = conversational.KB_PATH
+ALL_TEMPLATES = [(e.id, t) for e in KB.entries.values() for t in e.replies] + \
+    [("safety_net", t) for t in conversational.SAFETY_NET_NOT_FOUND]
 
 
 @pytest.fixture(autouse=True)
@@ -26,6 +30,26 @@ def fresh_state(monkeypatch):
     monkeypatch.setattr(conversational, "_logged_once", set())
     monkeypatch.setattr(settings, "project_name", "")
     monkeypatch.setattr(settings, "conversational_replies_enabled", True)
+
+
+@pytest.fixture
+def kb_file(tmp_path, monkeypatch):
+    """Point the loader at a temp copy of the shipped file; returns a function that writes new content."""
+    path = tmp_path / "kb.json"
+    monkeypatch.setattr(conversational, "KB_PATH", path)
+    knowledge_base.cache_clear()
+
+    def write(data):
+        path.write_text(data if isinstance(data, str) else json.dumps(data), encoding="utf-8")
+        knowledge_base.cache_clear()
+        return path
+
+    yield write
+    knowledge_base.cache_clear()
+
+
+def shipped():
+    return json.loads(SHIPPED_PATH.read_text(encoding="utf-8"))
 
 
 @pytest.fixture
@@ -55,7 +79,8 @@ def test_normalize(raw, expected):
 @pytest.mark.parametrize("intent,messages", [
     ("greeting", ["hi", "Hi", "hii", "Hiiii", "hhiii", "hello", "hellooo", "HELLO!!", "hey", "heyy", "heyyy",
                   "hiya", "howdy", "Howdy!", "hola", "HOLA", "greetings", "namaste", "namaskar", "yo", "yooo",
-                  "hello team", "Hi there!!!", "hey 👋", "hi hi", "  hii  "]),
+                  "hello team", "Hi there!!!", "hey 👋", "hi hi", "  hii  ", "hi guys", "hey mate", "hello folks",
+                  "yo dude", "hey bro"]),
     ("time_greeting", ["good morning", "Good   Morning", "good afternoon", "good evening", "Good day",
                        "good day!", "morning", "afternoon", "evening", "good morning everyone"]),
     ("gratitude", ["thanks", "thanksss", "thank you", "thank-you", "Thank-You!", "thankyou", "thank u",
@@ -64,8 +89,10 @@ def test_normalize(raw, expected):
     ("farewell", ["bye", "byeee", "bye bye", "goodbye", "good bye", "see you", "see ya", "See ya!", "see u",
                   "see you later", "see ya soon", "talk to you later", "ttyl", "cya", "farewell", "Farewell!",
                   "good night", "Good night!", "take care"]),
-    ("how_are_you", ["how are you", "how r u", "how are you doing", "how's it going", "what's up", "whatsup",
-                     "sup", "Sup?", "wassup", "wasssup", "How are you?"]),
+    ("how_are_you", ["how are you", "how r u", "how are you doing", "how's it going", "How are you?",
+                     "how are you buddy"]),
+    ("whats_going_on", ["what's up", "whatsup", "sup", "Sup?", "wassup", "wasssup", "whats going on",
+                        "what's new", "what's happening", "hey whats up", "sup dude", "whats up bro"]),
     ("capabilities", ["what can you do", "who are you", "what are you", "help", "what do you do", "Help!"]),
     ("acknowledgement", ["ok", "okay", "k", "cool", "great", "nice", "got it", "alright", "perfect", "OK!",
                          "understood", "sure", "yes", "yeah", "yep", "no", "nope", "hmm", "Hmmm..."]),
@@ -80,6 +107,7 @@ def test_phrase_families(intent, messages):
     ("Thanks, bye!", "farewell"),
     ("ok thanks", "gratitude"),
     ("hi how are you", "how_are_you"),
+    ("hey whats up", "whats_going_on"),
     ("Hi, good afternoon", "time_greeting"),
 ])
 def test_priority(message, intent):
@@ -98,29 +126,6 @@ def test_real_questions_are_not_small_talk(message):
     assert classify_conversational_intent(message) is None
 
 
-@pytest.mark.parametrize("message,expected", [
-    ("hola, what's the weather?", "what's the weather?"),
-    ("Hi, what is an invoice?", "what is an invoice?"),
-    ("HELLO!!  Explain invoice statuses", "Explain invoice statuses"),
-    ("hey there - how do refunds work", "how do refunds work"),
-    ("Good morning. What is a draft invoice?", "What is a draft invoice?"),
-    ("Hi, good afternoon! Who approves orders?", "Who approves orders?"),
-    ("Namaste: what is the late fee", "what is the late fee"),
-    # no greeting prefix, or no punctuation after it: unchanged
-    ("Thanks, can you explain draft invoices?", "Thanks, can you explain draft invoices?"),
-    ("ok, what is the total", "ok, what is the total"),
-    ("hi can you explain invoice statuses", "hi can you explain invoice statuses"),
-    ("morning news headlines", "morning news headlines"),
-    ("Morning shift policy, explained", "Morning shift policy, explained"),
-    ("What does hello mean in this document?", "What does hello mean in this document?"),
-    ("great wall of china", "great wall of china"),
-    ("Hi!!!", "Hi!!!"),
-    ("hey, 👋", "hey, 👋"),
-])
-def test_strip_greeting_prefix(message, expected):
-    assert conversational.strip_greeting_prefix(message) == expected
-
-
 def test_project_name_is_not_small_talk(monkeypatch):
     monkeypatch.setattr(settings, "project_name", SAMPLE_NAME)
     for m in [f"What is {SAMPLE_NAME}?", f"Tell me about {SAMPLE_NAME}"]:
@@ -132,13 +137,13 @@ def test_project_name_is_not_small_talk(monkeypatch):
 
 def test_rotation_never_repeats():
     replies = [conversational.conversational_reply("hi")["answer"] for _ in range(20)]
-    allowed = {render_reply(t) for t in REPLIES["greeting"]}
+    allowed = {render_reply(t) for t in conversational.replies("greeting")}
     assert set(replies) <= allowed
     assert all(a != b for a, b in zip(replies, replies[1:]))
 
 
 def test_single_variant_intent(monkeypatch):
-    monkeypatch.setitem(REPLIES, "greeting", ["Hello!"])
+    monkeypatch.setattr(conversational, "replies", lambda entry_id: ["Hello!"])
     assert [conversational.conversational_reply("hi")["answer"] for _ in range(3)] == ["Hello!"] * 3
 
 
@@ -149,18 +154,110 @@ def test_time_greeting_echoes_user(message, prefix):
 
 
 def test_catalog_sanity():
-    assert set(REPLIES) == set(conversational.PRIORITY) == set(conversational.PHRASES)
-    assert all(REPLIES[intent] for intent in REPLIES)
-    assert all("{salutation}" in t for t in REPLIES["time_greeting"])
+    assert set(conversational.PRIORITY) == set(conversational.PHRASES) == set(conversational.FALLBACK_REPLIES)
+    assert set(conversational.PHRASES) <= set(KB.entries)
+    assert all("{salutation}" in t for t in conversational.replies("time_greeting"))
+    for entry_id, variants in conversational.FALLBACK_REPLIES.items():
+        assert all(conversational.reply_problem(t, entry_id) is None for t in variants), entry_id
+
+
+def test_rotation_is_per_entry():
+    first = conversational.conversational_reply("hi")["answer"]
+    conversational.conversational_reply("thanks")
+    assert conversational.conversational_reply("hi")["answer"] != first
+
+
+# --- knowledge-base file ---
+
+def test_shipped_file_is_valid():
+    assert KB is not None
+    for entry in KB.entries.values():
+        if not entry.rules_only:
+            assert 8 <= len(entry.examples) <= 15, entry.id
+        assert 2 <= len(entry.replies) <= 4, entry.id
+    assert 25 <= len(KB.anchors) <= 40
+    assert [e.id for e in KB.entries.values() if e.rules_only] == ["time_greeting"]
+
+
+def test_no_project_name_in_file():
+    text = SHIPPED_PATH.read_text(encoding="utf-8").lower()
+    assert SAMPLE_NAME.lower() not in text
+
+
+def test_rule_phrases_are_examples():
+    # fuzzy matching needs each rule entry's own phrases to catch their misspellings
+    for entry_id in conversational.PHRASES:
+        examples = KB.entries[entry_id].examples
+        assert all(classify_conversational_intent(e) == entry_id for e in examples
+                   if classify_conversational_intent(e)), entry_id
+
+
+def _break(mutate):
+    data = shipped()
+    mutate(data)
+    return data
+
+
+def _entry(data, entry_id):
+    return next(e for e in data["entries"] if e["id"] == entry_id)
+
+
+BROKEN = {
+    "duplicate id": lambda d: d["entries"].append(dict(_entry(d, "greeting"), examples=[])),
+    "unknown intent": lambda d: _entry(d, "laughter").update(intent="jokes"),
+    "digit in example": lambda d: _entry(d, "gratitude")["examples"].append("thanks x2"),
+    "bad reply grammar": lambda d: _entry(d, "greeting")["replies"].append("Welcome to the {project}!"),
+    "example is an anchor": lambda d: _entry(d, "greeting")["examples"].append("what is an invoice"),
+    "example in two entries": lambda d: _entry(d, "laughter")["examples"].append("thanks"),
+    "too few examples": lambda d: _entry(d, "apology").update(examples=["sorry"]),
+    "missing rule entry": lambda d: d["entries"].remove(_entry(d, "farewell")),
+    "salutation outside time_greeting": lambda d: _entry(d, "greeting")["replies"].append("{salutation}! Hi."),
+}
+
+
+@pytest.mark.parametrize("case", [*BROKEN, "invalid json", "missing file"])
+def test_broken_file_disables_kb_but_rules_still_reply(kb_file, monkeypatch, caplog, case):
+    if case == "invalid json":
+        kb_file("{not json")
+    elif case == "missing file":
+        monkeypatch.setattr(conversational, "KB_PATH", kb_file("{}").with_name("nope.json"))
+    else:
+        kb_file(_break(BROKEN[case]))
+    with caplog.at_level(logging.INFO, logger="app.services.conversational"):
+        assert knowledge_base() is None
+        assert knowledge_base() is None
+        reply = conversational.conversational_reply("Hi")
+    assert sum(r.levelno == logging.ERROR for r in caplog.records) == 1
+    assert reply["found"] is True and reply["answer"] == render_reply(conversational.FALLBACK_REPLIES["greeting"][0])
+
+
+def test_valid_copy_loads_and_logs_counts(kb_file, caplog):
+    kb_file(shipped())
+    with caplog.at_level(logging.INFO, logger="app.services.conversational"):
+        kb = knowledge_base()
+    assert kb.entries == KB.entries and kb.anchors == KB.anchors and kb.hash
+    assert any("14 entries" in r.message for r in caplog.records)
+
+
+def test_reply_problem_rules():
+    ok = ["Ask me anything about {project}.", "How can I help you with {project}?", "I'm the assistant for {project}."]
+    assert all(conversational.reply_problem(t, "greeting") is None for t in ok)
+    for bad in ["{project} is great.", "Welcome to {project}!", "About the {project}.", "Help with your {project}.",
+                "Questions about {project}'s docs.", "Questions about {project}s.", "About {project} and {project}.",
+                "Ask about {project}", "Hi  there!", "Hi {name}!", "Hello {salutation}!"]:
+        assert conversational.reply_problem(bad, "greeting"), bad
+    assert conversational.reply_problem("{salutation}! Hi.", "time_greeting") is None
+    assert conversational.reply_problem("Hi {salutation}!", "time_greeting")
 
 
 # --- project name in replies ---
 
 def test_project_placeholder_position():
-    for _, t in ALL_TEMPLATES:
+    for entry_id, t in ALL_TEMPLATES:
+        assert conversational.reply_problem(t, entry_id) is None, t
         assert t.count("{project}") <= 1, t
         for m in re.finditer(r"\{project\}", t):
-            assert t[:m.start()].endswith(("about ", "with ")), t
+            assert t[:m.start()].endswith(("about ", "with ", "for ")), t
         assert not re.search(r"(^|[.!?] )\{project\}", t), t
 
 
@@ -218,7 +315,8 @@ def test_message_text_not_logged(caplog):
 # --- routing through POST /chat ---
 
 @pytest.mark.parametrize("question", ["Hi", "Good morning", "Thank you", "Bye", "ok", "what can you do",
-                                      "wassup", "hola", "Good day", "Good night", "cya", "thank-you", "hmm"])
+                                      "wassup", "hola", "Good day", "Good night", "cya", "thank-you", "hmm",
+                                      "Hey, what's up?", "whats going on"])
 def test_small_talk_skips_rag(no_rag, question):
     r = client.post("/chat", json={"question": question})
     assert r.status_code == 200
@@ -227,14 +325,14 @@ def test_small_talk_skips_rag(no_rag, question):
     assert body["answer"]
 
 
-def test_greeting_prefix_is_stripped_before_rag(monkeypatch):
+def test_question_with_greeting_reaches_rag_unchanged(monkeypatch):
     seen, prompts = [], []
     monkeypatch.setattr(chat_service, "retrieve", lambda q: seen.append(q) or [HIT])
     monkeypatch.setattr(llm, "generate", lambda m: prompts.append(m) or "Invoices are monthly.")
     body = client.post("/chat", json={"question": "Hi, what is an invoice?"}).json()
-    assert seen == ["what is an invoice?"]
-    assert prompts[0][1]["content"].endswith("Question: what is an invoice?")
-    assert body["sources"] == [{"title": "Invoices", "url": "http://doc/inv"}]
+    assert seen == ["Hi, what is an invoice?"]
+    assert prompts[0][1]["content"].endswith("Question: Hi, what is an invoice?")
+    assert body["found"] is True and body["sources"] == [{"title": "Invoices", "url": "http://doc/inv"}]
 
 
 @pytest.mark.parametrize("question", ["great wall of china", "morning news headlines", "perfect square definition",
@@ -244,14 +342,6 @@ def test_content_queries_reach_rag_unchanged(monkeypatch, question):
     monkeypatch.setattr(chat_service, "retrieve", lambda q: seen.append(q) or [])
     body = client.post("/chat", json={"question": question}).json()
     assert seen == [question] and body["found"] is False
-
-
-def test_prefix_not_stripped_when_master_flag_off(monkeypatch):
-    seen = []
-    monkeypatch.setattr(settings, "conversational_replies_enabled", False)
-    monkeypatch.setattr(chat_service, "retrieve", lambda q: seen.append(q) or [])
-    client.post("/chat", json={"question": "Hi, what is an invoice?"})
-    assert seen == ["Hi, what is an invoice?"]
 
 
 def test_master_flag_off_sends_hi_to_rag(monkeypatch):
@@ -279,7 +369,7 @@ def test_blank_input_still_rejected(no_rag):
 
 def test_hi_uses_configured_name(monkeypatch, no_rag):
     monkeypatch.setattr(settings, "project_name", SAMPLE_NAME)
-    without_project = {t for t in REPLIES["greeting"] if "{project}" not in t}
+    without_project = {t for t in conversational.replies("greeting") if "{project}" not in t}
     for _ in range(4):
         answer = client.post("/chat", json={"question": "Hi"}).json()["answer"]
         assert SAMPLE_NAME in answer or answer in without_project

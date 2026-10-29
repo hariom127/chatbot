@@ -72,32 +72,53 @@ The embedding model is independent of the answer model. Each embedding model get
 
 ### Greetings and small talk
 
-Greetings, thanks, goodbyes, "how are you", "what can you do" and short acknowledgements ("ok", "got it") get an instant friendly reply that names your project. They never search the documents or call the answer model. Any real question is answered from the documents as usual. A leading greeting followed by punctuation is removed first, so "Hola, what's the weather?" is searched as "what's the weather?". Without that punctuation the message is left as it is, so content queries like "morning news headlines" keep their first word.
+Greetings, thanks, goodbyes, "how are you", "what's up", "what can you do", short acknowledgements ("ok", "got it") and similar small talk get an instant friendly reply that names your project. Typos and chat shorthand work too ("helo ther", "thnks a lott", "hw r u doing"). These replies never call the answer model. Any real question, including one that starts with "Hi", is answered from the documents as usual, with its original text.
 
-Two layers detect small talk. Exact phrase rules come first. If they don't match, a semantic fallback compares short messages (no digits, up to `SEMANTIC_SMALL_TALK_MAX_WORDS` words) with example phrases, using the same embedding model as retrieval. When in doubt, the message goes to RAG.
+Each message goes through these steps. The first one that decides wins, and when in doubt the message goes to RAG.
+
+1. **Rules.** The whole message must be known phrases ("hi there", "thanks, bye!").
+2. **Small-talk knowledge base**, only for short messages (up to 60 characters and `SMALL_TALK_MAX_WORDS` words, no digits):
+   - **Fuzzy matching.** Stretched letters are squeezed ("hiii"), shorthand is expanded ("u", "r", "thx") and typos are fixed toward small-talk words. The rules run again on the result, then it is compared letter by letter with the examples and with real-question anchors.
+   - **Semantic matching.** The message is compared with the same examples and anchors in a separate ChromaDB collection (`small_talk_*`), using the retrieval embedding model. Synced documents and `/sync/status` never see it.
+3. **RAG**, unchanged.
+4. **Safety net.** If RAG finds nothing, a message that was close to small talk still gets a small-talk reply. A question that starts with a greeting gets a not-found answer that greets back. Everything else gets the usual "I don't have enough information" answer.
 
 | Setting | Default | Meaning |
 |---|---|---|
 | `PROJECT_NAME` | empty | Name used in replies ("Ask me anything about Acme Portal."). Empty means replies say "this project". |
-| `CONVERSATIONAL_REPLIES_ENABLED` | `true` | Master switch. `false` sends every message to RAG. |
-| `SEMANTIC_SMALL_TALK_ENABLED` | `true` | Turns the semantic fallback on or off. The phrase rules keep working when it is off. |
-| `SEMANTIC_SMALL_TALK_THRESHOLD` | `0.65` | Minimum similarity to a small-talk example. |
-| `SEMANTIC_SMALL_TALK_MARGIN` | `0.10` | How far the message must score above the closest real-question example. |
-| `SEMANTIC_SMALL_TALK_MAX_WORDS` | `6` | Longer messages skip the semantic fallback. |
+| `CONVERSATIONAL_REPLIES_ENABLED` | `true` | Master switch for all of the above. `false` sends every message to RAG, exactly as before. |
+| `SMALL_TALK_KB_ENABLED` | `true` | Fuzzy and semantic matching. The rules keep working when it is off. |
+| `SMALL_TALK_SEMANTIC_ENABLED` | `true` | Semantic matching only. Fuzzy matching keeps working, and nothing is embedded. |
+| `SMALL_TALK_SAFETY_NET_ENABLED` | `true` | The safety net after RAG. |
+| `SMALL_TALK_MAX_WORDS` | `8` | Longer messages skip the knowledge base. |
+| `SMALL_TALK_FUZZY_THRESHOLD` | `0.85` | Minimum letter-by-letter similarity to a small-talk example. |
+| `SMALL_TALK_FUZZY_MARGIN` | `0.15` | How far it must score above the closest real-question anchor. |
+| `SMALL_TALK_SEMANTIC_THRESHOLD` | `0.75` | Minimum embedding similarity to a small-talk example. Calibrated for `all-MiniLM-L6-v2`. |
+| `SMALL_TALK_SEMANTIC_MARGIN` | `0.10` | How far it must score above the closest real-question anchor. |
 | `ABUSIVE_LANGUAGE_FILTER_ENABLED` | `true` | Abusive messages get a polite reply that names `PROJECT_NAME`. |
 
 Abusive messages ("you are useless", "f*ck off") get a polite reply without searching the documents or calling any model. If the message also asks a real question ("You stupid bot, what is an invoice?"), the abuse is removed and the question is answered as usual. Insults count only when aimed at the assistant, and words in quotes or in a question about the word itself ("What does 'idiot' mean?") are left alone. The rules are in `backend/app/services/moderation.py`.
 
-Restart the backend after changing these settings. The threshold and margin were calibrated for `all-MiniLM-L6-v2` and `text-embedding-3-small`. After switching to another embedding model, recalibrate:
+Restart the backend after changing these settings.
+
+#### Editing the small-talk replies and examples
+
+Everything the bot says in small talk lives in `backend/app/small_talk/small_talk_kb.json`. Each entry has example messages (8 to 15, informal spelling, no digits, no project name) and 3 to 4 replies. The `question_anchors` list holds real questions that must never be mistaken for small talk; add a few that match your own documents. Replies may use `{project}`, only right after "about", "with" or "for".
+
+After editing, run the tests (they check the file) and restart the backend. The ChromaDB collection rebuilds itself on the next short message. If the file is invalid, the backend logs one error and keeps answering with the phrase rules only.
+
+#### Calibrating for an embedding model
+
+The semantic values depend on the embedding model. After changing `EMBEDDING_MODEL` or `OPENAI_EMBEDDING_MODEL`, or after a big edit to the knowledge base, run:
 
 ```bash
 cd backend && source .venv/bin/activate
 python -m app.scripts.calibrate_small_talk
 ```
 
-The script prints scores for a set of probe messages and sweeps threshold and margin values. Pick the lowest values that give zero false positives and leave room above the "tricky" probes. A miss only means the message gets today's "could not find" answer, but a false positive would swallow a real question.
+It uses a temporary ChromaDB folder, prints the scores and decision for each probe message, lists false positives and misses, and sweeps threshold and margin values. Pick the lowest values with zero false positives that still send the "tricky" probes to RAG. A miss is usually caught by the safety net, but a false positive would swallow a real question.
 
-With OpenAI embeddings, a short message that the rules miss costs one extra small embedding request. The example phrases are embedded once per backend process.
+With OpenAI embeddings, a short message that the rules and fuzzy matching miss costs one extra small embedding request, plus one batch whenever the collection is rebuilt.
 
 ## 4. Frontend setup
 

@@ -43,10 +43,17 @@ class Settings(BaseSettings):
     # Name used in replies. When empty, replies say "this project".
     project_name: str = ""
     conversational_replies_enabled: bool = True
-    semantic_small_talk_enabled: bool = True
-    semantic_small_talk_threshold: float = 0.65  # calibrated for all-MiniLM-L6-v2 and text-embedding-3-small
-    semantic_small_talk_margin: float = 0.10
-    semantic_small_talk_max_words: int = 6
+    # Small-talk knowledge base (backend/app/small_talk/small_talk_kb.json): fuzzy matching for typos and shorthand
+    small_talk_kb_enabled: bool = True
+    small_talk_max_words: int = 8  # longer messages skip the knowledge base
+    small_talk_fuzzy_threshold: float = 0.85  # minimum character similarity to a small-talk example
+    small_talk_fuzzy_margin: float = 0.15  # required lead over the closest real-question anchor
+    # Semantic matching against the small_talk_* Chroma collection; recalibrate when the embedding model changes
+    small_talk_semantic_enabled: bool = True
+    small_talk_semantic_threshold: float = 0.75  # minimum cosine similarity to a small-talk example
+    small_talk_semantic_margin: float = 0.10  # required lead over the closest real-question anchor
+    # After RAG finds nothing: reply to missed small talk, and greet back on a not-found
+    small_talk_safety_net_enabled: bool = True
     # Abusive-only messages get a polite reply (naming project_name); abuse mixed into a question is removed
     abusive_language_filter_enabled: bool = True
 

@@ -4,9 +4,9 @@ from app.config import settings
 
 
 @pytest.fixture(autouse=True)
-def semantic_small_talk_off(monkeypatch):
-    """The semantic small-talk layer embeds text; tests that need it turn it on themselves."""
-    monkeypatch.setattr(settings, "semantic_small_talk_enabled", False)
+def small_talk_semantic_off(monkeypatch):
+    """The semantic small-talk layer embeds text and builds a Chroma collection; tests that need it turn it on."""
+    monkeypatch.setattr(settings, "small_talk_semantic_enabled", False)
 
 
 @pytest.fixture

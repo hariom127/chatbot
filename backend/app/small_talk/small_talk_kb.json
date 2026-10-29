@@ -1,0 +1,228 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "greeting",
+      "intent": "greeting",
+      "examples": [
+        "hi", "hello", "hey", "hiya", "howdy", "greetings", "namaste", "hola", "yo", "hi there",
+        "hello there", "hey there friend", "heya", "good to see you", "hello chatbot"
+      ],
+      "replies": [
+        "Hello! I can answer questions about {project}. What would you like to know?",
+        "Hi there! Ask me anything about {project}.",
+        "Hey! What would you like to know about {project}?",
+        "Hello! How can I help you with {project} today?"
+      ]
+    },
+    {
+      "id": "time_greeting",
+      "intent": "time_greeting",
+      "rules_only": true,
+      "examples": ["good morning", "good afternoon", "good evening", "good day", "morning", "afternoon", "evening"],
+      "replies": [
+        "{salutation}! I can answer questions about {project}. What would you like to know?",
+        "{salutation}! What would you like to know about {project}?",
+        "{salutation}! How can I help you with {project} today?"
+      ]
+    },
+    {
+      "id": "gratitude",
+      "intent": "gratitude",
+      "examples": [
+        "thanks", "thank you", "thanks a lot", "thank you so much", "thx", "much appreciated", "appreciate it",
+        "many thanks", "thanks a ton", "that helps thanks", "cheers", "thanks so much for the help",
+        "really appreciate it", "thanks for the help", "thank you kindly"
+      ],
+      "replies": [
+        "You're welcome! Ask me anything else about {project}.",
+        "Happy to help! Anything else you'd like to know?",
+        "Glad that helped! Let me know if you have more questions.",
+        "Anytime! What else can I help you with?"
+      ]
+    },
+    {
+      "id": "farewell",
+      "intent": "farewell",
+      "examples": [
+        "bye", "goodbye", "bye bye", "see you later", "talk to you later", "take care", "good night",
+        "catch you later", "i am done for now", "gotta go", "see you tomorrow", "that is all for today",
+        "have a good day", "until next time", "signing off"
+      ],
+      "replies": [
+        "Goodbye! Come back any time you have a question about {project}.",
+        "See you later! I'll be here when you need me.",
+        "Take care! Feel free to come back with more questions."
+      ]
+    },
+    {
+      "id": "how_are_you",
+      "intent": "how_are_you",
+      "examples": [
+        "how are you", "how r u", "how are you doing", "hows it going", "how is your day going",
+        "how have you been", "how are things", "hope you are doing well", "how is it going today",
+        "you doing ok", "hows your day going", "how are you today"
+      ],
+      "replies": [
+        "I'm doing well, thanks for asking! What would you like to know about {project}?",
+        "All good here! How can I help you with {project}?",
+        "Doing great! Ask me anything about {project}."
+      ]
+    },
+    {
+      "id": "whats_going_on",
+      "intent": "whats_going_on",
+      "examples": [
+        "whats up", "sup", "whats new", "whats happening", "hi there whats going on",
+        "hey whats going on", "whats new with you", "what are you up to", "hows everything", "hows life",
+        "whats up buddy", "hey whats up"
+      ],
+      "replies": [
+        "Hey there! I'm doing great, thanks for asking! What's going on with you?",
+        "Not much, just here and ready to help! What can I do for you today?",
+        "All good on my side! What would you like to know about {project}?"
+      ]
+    },
+    {
+      "id": "capabilities",
+      "intent": "capabilities",
+      "examples": [
+        "what can you do", "who are you", "what are you", "help", "what do you do",
+        "what are you able to help with", "what kind of questions can i ask", "how can you help me",
+        "what do you know", "what is this bot for", "what can i ask you"
+      ],
+      "replies": [
+        "I answer questions about {project} using its knowledge base synced from Google Drive, and I link the sources I used.",
+        "Ask me a question about {project} and I'll answer from its synced Google Docs, with links to the sources.",
+        "I can help with questions about {project}. If I don't have the information, I'll tell you instead of guessing."
+      ]
+    },
+    {
+      "id": "acknowledgement",
+      "intent": "acknowledgement",
+      "examples": [
+        "ok", "okay", "cool", "great", "nice", "got it", "perfect", "sure", "sounds good", "makes sense",
+        "understood", "all good", "noted", "that works", "fair enough"
+      ],
+      "replies": [
+        "Great! Anything else you'd like to know?",
+        "Sounds good. Ask me anything else about {project}.",
+        "Okay! Let me know if you have another question."
+      ]
+    },
+    {
+      "id": "identity",
+      "intent": "identity",
+      "examples": [
+        "are you a bot", "are you human", "are you real", "is this ai", "am i talking to a person",
+        "are you chatgpt", "is this a robot", "are you an ai", "am i chatting with a human", "are you a machine",
+        "is this an automated reply"
+      ],
+      "replies": [
+        "I'm an AI assistant for {project}. I answer questions using its synced knowledge base.",
+        "I'm a virtual assistant, not a person. Ask me anything about {project}!",
+        "I'm an AI helper for {project}. What would you like to know?"
+      ]
+    },
+    {
+      "id": "returning",
+      "intent": "returning",
+      "examples": [
+        "im back", "hello again", "its me again", "hey again", "back again", "i have another question",
+        "hi again", "i am back", "me again", "good to be back"
+      ],
+      "replies": [
+        "Welcome back! What would you like to know about {project}?",
+        "Good to see you again! What can I help you with?",
+        "Hi again! Ask me anything about {project}."
+      ]
+    },
+    {
+      "id": "compliment",
+      "intent": "compliment",
+      "examples": [
+        "good bot", "you are great", "nice work", "you are helpful", "love it", "awesome answer", "great job",
+        "well done", "you are awesome", "very helpful", "you are the best", "brilliant"
+      ],
+      "replies": [
+        "Thank you, that's kind of you! What else can I help you with?",
+        "Glad you liked it! Anything else you'd like to know?",
+        "Thanks! Let me know if you have more questions about {project}."
+      ]
+    },
+    {
+      "id": "apology",
+      "intent": "apology",
+      "examples": [
+        "sorry", "my bad", "oops", "sorry wrong message", "ignore that", "never mind", "nevermind",
+        "my mistake", "sorry about that", "oops wrong chat", "apologies", "pardon me"
+      ],
+      "replies": [
+        "No problem at all! What would you like to ask?",
+        "All good! Ask me whenever you're ready.",
+        "No worries! What can I help you with?"
+      ]
+    },
+    {
+      "id": "presence_check",
+      "intent": "presence_check",
+      "examples": [
+        "are you there", "anyone there", "hello are you there", "test", "testing", "you awake",
+        "is anybody there", "can you hear me", "are you online", "still there", "ping", "are you working"
+      ],
+      "replies": [
+        "I'm here! What would you like to know about {project}?",
+        "Yes, I'm right here. How can I help?",
+        "Still here and ready to help!"
+      ]
+    },
+    {
+      "id": "laughter",
+      "intent": "laughter",
+      "examples": [
+        "lol", "haha", "hehe", "lmao", "that is funny", "rofl", "lolz", "so funny", "that made me laugh",
+        "hilarious", "too funny"
+      ],
+      "replies": [
+        "Glad you're having fun! Anything I can help you with?",
+        "Ha! What else can I do for you?",
+        "Happy to bring a smile! Ask me anything about {project}."
+      ]
+    }
+  ],
+  "question_anchors": [
+    "what is an invoice",
+    "how does invoice generation work",
+    "can one invoice have multiple orders",
+    "what are the invoice statuses",
+    "how is the total calculated",
+    "how do I create an order",
+    "where can I find the policy",
+    "explain the refund process",
+    "what does this document say about payments",
+    "help me understand draft invoices",
+    "what happens after approval",
+    "who approves the request",
+    "when is payment due",
+    "how many vacation days do I get",
+    "what is the process for onboarding",
+    "what is going on with my order",
+    "whats the status of my order",
+    "whats new in the latest release",
+    "how is the payment going",
+    "whats up with my invoice",
+    "hey whats the status",
+    "any update on my request",
+    "help me with invoices",
+    "what is a line item",
+    "what is ready to invoice",
+    "what is a past due invoice",
+    "how do invoice reminders work",
+    "what are additional charges",
+    "what is minimum billable",
+    "can a vendor edit an invoice after sending it",
+    "what does group by mean",
+    "what are RT OT and DT",
+    "what happens when a service is cancelled"
+  ]
+}

@@ -66,6 +66,15 @@ def _sources(hits: list[dict]) -> list[dict]:
     return out
 
 
+def _not_found(question: str, small_talk, response: dict) -> dict:
+    """Layer 4: a greeting must never end in the plain not-found message."""
+    if small_talk is not None and settings.small_talk_safety_net_enabled:
+        reply = conversational.safety_net_reply(question, small_talk.near_miss)
+        if reply is not None:
+            return reply
+    return response
+
+
 def answer_question(question: str, history: list[dict] | None = None) -> dict:
     history = (history or [])[-settings.chat_history_max_messages:] if settings.chat_history_max_messages > 0 else []
 
@@ -75,22 +84,23 @@ def answer_question(question: str, history: list[dict] | None = None) -> dict:
             return moderation.moderation_reply()
         question = check.question
 
+    small_talk = None
     if settings.conversational_replies_enabled:
-        reply = conversational.conversational_reply(question)
-        if reply is not None:
-            return reply
-        question = conversational.strip_greeting_prefix(question)
+        small_talk = conversational.check(question)
+        if small_talk is not None and small_talk.reply is not None:
+            return small_talk.reply
 
     hits = _retrieve(question, history)
     if not hits:
         # no LLM call: nothing relevant was retrieved, so don't risk a made-up answer
-        return {"answer": NOT_FOUND_ANSWER, "found": False, "sources": [], "snippets": []}
+        return _not_found(question, small_talk,
+                          {"answer": NOT_FOUND_ANSWER, "found": False, "sources": [], "snippets": []})
 
     answer = llm.generate(build_messages(question, hits, history))
     # Only an answer that opens with the fallback is a not-found; a partial answer keeps its sources
     found = not answer.replace("’", "'").lower().startswith(NOT_FOUND_ANSWER.lower().rstrip("."))
     if not found:
-        return {"answer": answer, "found": False, "sources": [], "snippets": []}
+        return _not_found(question, small_talk, {"answer": answer, "found": False, "sources": [], "snippets": []})
     return {
         "answer": answer,
         "found": True,

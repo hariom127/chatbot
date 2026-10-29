@@ -139,7 +139,7 @@ def test_message_text_not_logged(caplog):
 
 @pytest.mark.parametrize("question", ["fuck you", "you are useless", "stupid bot", "hi idiot", "shut up"])
 def test_abusive_message_skips_rag(no_rag, monkeypatch, question):
-    monkeypatch.setattr(settings, "semantic_small_talk_enabled", True)
+    monkeypatch.setattr(settings, "small_talk_semantic_enabled", True)
     monkeypatch.setattr(settings, "project_name", SAMPLE_NAME)
     r = client.post("/chat", json={"question": question})
     assert r.status_code == 200
@@ -165,11 +165,11 @@ def test_mixed_message_answers_cleaned_question(monkeypatch):
                     "snippets": [{"title": "Invoices", "url": "http://doc/inv", "text": "Invoices are monthly."}]}
 
 
-def test_mixed_message_then_greeting_prefix_stripped(monkeypatch):
+def test_mixed_message_keeps_greeting(monkeypatch):
     seen = []
     monkeypatch.setattr(chat_service, "retrieve", lambda q: seen.append(q) or [])
     client.post("/chat", json={"question": "Hi, you idiot, what is a line item?"})
-    assert seen == ["what is a line item?"]
+    assert seen == ["Hi, what is a line item?"]
 
 
 @pytest.mark.parametrize("question", ["What does 'idiot' mean?", "How do I fix stupid mistakes in invoices?",
@@ -202,7 +202,7 @@ def test_filter_works_with_small_talk_off(no_rag, monkeypatch):
 def test_small_talk_still_answered(no_rag, question, intent):
     body = client.post("/chat", json={"question": question}).json()
     renders = {conversational.render_reply(t, conversational.salutation(question))
-               for t in conversational.REPLIES[intent]}
+               for t in conversational.replies(intent)}
     assert body["answer"] in renders
 
 
@@ -211,4 +211,4 @@ def test_normal_question_unchanged(monkeypatch):
     monkeypatch.setattr(chat_service, "retrieve", lambda q: seen.append(q) or [HIT])
     monkeypatch.setattr(llm, "generate", lambda m: "Invoices are monthly.")
     body = client.post("/chat", json={"question": "Hi, what is an invoice?"}).json()
-    assert seen == ["what is an invoice?"] and body["found"] is True
+    assert seen == ["Hi, what is an invoice?"] and body["found"] is True
