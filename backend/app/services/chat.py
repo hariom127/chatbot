@@ -1,4 +1,5 @@
-from app.services import llm
+from app.config import settings
+from app.services import conversational, llm
 from app.services.retrieval import retrieve
 
 NOT_FOUND_ANSWER = "I could not find this information in the indexed documents."
@@ -28,6 +29,11 @@ def _sources(hits: list[dict]) -> list[dict]:
 
 
 def answer_question(question: str) -> dict:
+    if settings.conversational_replies_enabled:
+        reply = conversational.conversational_reply(question)
+        if reply is not None:
+            return reply
+
     hits = retrieve(question)
     if not hits:
         # no LLM call: nothing relevant was retrieved, so don't risk a made-up answer

@@ -37,6 +37,15 @@ class Settings(BaseSettings):
     modal_proxy_token_id: str = ""
     modal_proxy_token_secret: str = ""
 
+    # Small talk (greetings, thanks, goodbyes) answered without retrieval or the LLM
+    # Name used in replies. When empty, replies say "this project".
+    project_name: str = ""
+    conversational_replies_enabled: bool = True
+    semantic_small_talk_enabled: bool = True
+    semantic_small_talk_threshold: float = 0.75
+    semantic_small_talk_margin: float = 0.10
+    semantic_small_talk_max_words: int = 6
+
     @property
     def resolved_embedding_provider(self) -> str:
         if self.embedding_provider:
