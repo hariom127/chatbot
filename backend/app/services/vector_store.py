@@ -1,10 +1,15 @@
 """Persistent ChromaDB wrapper. Embeddings are passed in, so Chroma never loads its own model."""
+import hashlib
+
 import chromadb
 
 from app.config import settings
 from app.services.chunking import Chunk
 
-COLLECTION = "drive_docs"
+
+def collection_name() -> str:
+    # one collection per embedding model: vector sizes differ, so they must never be mixed
+    return "drive_docs_" + hashlib.sha256(settings.embedding_id.encode()).hexdigest()[:12]
 
 
 def _collection(path: str | None = None):
@@ -12,7 +17,9 @@ def _collection(path: str | None = None):
         path=path or settings.chroma_dir,
         settings=chromadb.Settings(anonymized_telemetry=False),
     )
-    return client.get_or_create_collection(COLLECTION, metadata={"hnsw:space": "cosine"})
+    return client.get_or_create_collection(
+        collection_name(), metadata={"hnsw:space": "cosine", "embedding_id": settings.embedding_id}
+    )
 
 
 class VectorStore:

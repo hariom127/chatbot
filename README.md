@@ -56,12 +56,19 @@ Only Google Docs and Word (`.docx`) files directly inside that folder are indexe
 | `LLM_PROVIDER` | Needs | Notes |
 |---|---|---|
 | `modal` (default) | `MODAL_PROXY_TOKEN_ID`, `MODAL_PROXY_TOKEN_SECRET` | Your Modal-hosted Qwen endpoint. `LLM_MODEL` defaults to `Qwen/Qwen3.8-Max-VL-Thinking`. Reasoning effort is set to high; this can be slow. |
-| `openai` | `LLM_API_KEY`, `LLM_MODEL` (e.g. a current GPT model) | Paid API. |
+| `openai` | `OPENAI_API_KEY`, `LLM_MODEL` (e.g. `gpt-5.4-mini`) | Paid API. Reasoning models (`o*`, `gpt-5*`) are sent without a temperature. Older models get deprecated — if you see "not available (wrong name or deprecated)", pick a current model. |
 | `groq` | `LLM_API_KEY`, `LLM_MODEL` | Has a free tier with rate limits that change — check Groq's current terms. |
 | `gemini` | `LLM_API_KEY`, `LLM_MODEL` | Uses Google's OpenAI-compatible endpoint. Free-tier limits change — check Google's current terms. |
 | `custom` | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | Any OpenAI-compatible server (this includes Ollama at `http://localhost:11434/v1`, untested here). |
 
-Switching providers only means editing `.env` and restarting; retrieval code is unchanged. Embeddings always stay local, independent of the answer model. Don't assume any provider is free forever — check their pricing.
+Switching providers only means editing `.env` and restarting; retrieval code is unchanged. Don't assume any provider is free forever — check their pricing.
+
+### Embeddings
+
+- **Local (default):** leave `OPENAI_EMBEDDING_MODEL` empty. Uses `EMBEDDING_MODEL` (Sentence Transformers), free and offline.
+- **OpenAI:** set `OPENAI_EMBEDDING_MODEL=text-embedding-3-small` and `OPENAI_API_KEY`. Each sync of changed docs and every question costs a small amount of API usage.
+
+The embedding model is independent of the answer model. Each embedding model gets its own ChromaDB collection, so after changing it just click **Sync documents** and everything is re-indexed. You may need to tune `MAX_DISTANCE` per embedding model.
 
 ## 4. Frontend setup
 
@@ -99,6 +106,7 @@ Tests use temporary folders and mocks for Google Drive and the LLM. They do not 
 - **"Google is not authorized yet"** → run `python -m app.scripts.google_auth` from `backend/`.
 - **"Permission denied" / "folder not found"** → check `GOOGLE_DRIVE_FOLDER_ID`, that Drive API is enabled, and that your account can open the folder.
 - **Google login stopped working after a week** → OAuth apps in "Testing" expire refresh tokens after 7 days; re-run the auth script.
+- **"OpenAI rejected the API key"** → `OPENAI_API_KEY=` must be followed directly by the key (`sk-...`), with no placeholder text, quotes or spaces.
 - **"Modal credentials are missing"** → fill `MODAL_PROXY_TOKEN_ID` / `MODAL_PROXY_TOKEN_SECRET` in `backend/.env` and restart the backend.
 - **Answers always say "could not find"** → sync first; if still failing, raise `MAX_DISTANCE` (e.g. 0.9) in `.env`.
 - **Frontend says it cannot reach the backend** → make sure uvicorn runs on port 8000 and `CORS_ORIGINS` includes the frontend URL.

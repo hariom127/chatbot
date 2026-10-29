@@ -27,7 +27,11 @@ def _client() -> OpenAI:
         if not (settings.modal_proxy_token_id and settings.modal_proxy_token_secret):
             raise LLMError("Modal credentials are missing. Set MODAL_PROXY_TOKEN_ID and MODAL_PROXY_TOKEN_SECRET.")
         api_key = f"{settings.modal_proxy_token_id}.{settings.modal_proxy_token_secret}"
-    elif provider in ("openai", "groq", "gemini", "custom"):
+    elif provider == "openai":
+        api_key = settings.openai_api_key or settings.llm_api_key
+        if not api_key:
+            raise LLMError("OPENAI_API_KEY is missing.")
+    elif provider in ("groq", "gemini", "custom"):
         if not settings.llm_api_key:
             raise LLMError(f"LLM_API_KEY is missing for provider '{provider}'.")
         api_key = settings.llm_api_key
@@ -47,21 +51,29 @@ def _strip_thinking(text: str) -> str:
 
 def generate(messages: list[dict]) -> str:
     client = _client()
-    extra = {"reasoning_effort": "high"} if settings.llm_provider.lower() == "modal" else None
+    provider = settings.llm_provider.lower()
+    params = {"model": settings.llm_model, "messages": messages}
+    if provider == "openai":
+        # OpenAI replaced max_tokens; reasoning models (o-series, gpt-5) only accept the default temperature
+        params["max_completion_tokens"] = settings.llm_max_tokens
+        if not settings.llm_model.lower().startswith(("o1", "o3", "o4", "gpt-5")):
+            params["temperature"] = 0.2
+    else:
+        params["max_tokens"] = settings.llm_max_tokens
+        params["temperature"] = 0.2
+    if provider == "modal":
+        params["extra_body"] = {"reasoning_effort": "high"}
     try:
-        completion = client.chat.completions.create(
-            model=settings.llm_model,
-            messages=messages,
-            temperature=0.2,
-            max_tokens=settings.llm_max_tokens,
-            extra_body=extra,
-        )
+        completion = client.chat.completions.create(**params)
     except openai.AuthenticationError as exc:
         raise LLMError("The AI provider rejected the credentials.") from exc
     except openai.RateLimitError as exc:
         raise LLMError("The AI provider rate limit was reached. Try again shortly.") from exc
     except openai.NotFoundError as exc:
-        raise LLMError(f"Model '{settings.llm_model}' was not found at the provider.") from exc
+        raise LLMError(
+            f"Model '{settings.llm_model}' is not available at the provider (wrong name or deprecated). "
+            "Change LLM_MODEL in backend/.env."
+        ) from exc
     except openai.APITimeoutError as exc:
         raise LLMError("The AI provider timed out.") from exc
     except openai.APIConnectionError as exc:

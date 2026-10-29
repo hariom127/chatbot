@@ -8,6 +8,8 @@ def tmp_settings(tmp_path, monkeypatch):
     """Point Chroma and sync state at a temp dir so tests never touch real data."""
     monkeypatch.setattr(settings, "chroma_dir", str(tmp_path / "chroma"))
     monkeypatch.setattr(settings, "sync_state_file", str(tmp_path / "state.json"))
+    # tests always use the free local model, whatever .env selects
+    monkeypatch.setattr(settings, "embedding_provider", "local")
     return settings
 
 

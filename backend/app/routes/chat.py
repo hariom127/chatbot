@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.services import chat as chat_service
+from app.services.embeddings import EmbeddingError
 from app.services.llm import LLMError
 
 logger = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ def chat(req: ChatRequest):
         raise HTTPException(status_code=422, detail="Question must not be blank.")
     try:
         return chat_service.answer_question(question)
-    except LLMError as exc:
+    except (LLMError, EmbeddingError) as exc:
         logger.warning("Chat failed (LLM): %s", exc)
         raise HTTPException(status_code=502, detail=str(exc))
     except Exception:

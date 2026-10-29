@@ -33,10 +33,12 @@ def _save_state(state: dict) -> None:
 
 def get_status() -> dict:
     state = _load_state()
+    current = state.get("embedding_id") == settings.embedding_id
     return {
-        "last_sync": state["last_sync"],
-        "last_result": state["last_result"],
-        "indexed_documents": len(state["docs"]),
+        "last_sync": state["last_sync"] if current else None,
+        "last_result": state["last_result"] if current else None,
+        "indexed_documents": len(state["docs"]) if current else 0,
+        "embedding": settings.embedding_id,
     }
 
 
@@ -52,6 +54,10 @@ def sync_documents(docs: list[dict], store: VectorStore | None = None) -> dict:
     try:
         store = store or VectorStore()
         state = _load_state()
+        if state.get("embedding_id") != settings.embedding_id:
+            # embedding model changed: the new collection is empty, so every doc must be re-embedded
+            state["docs"] = {}
+            state["embedding_id"] = settings.embedding_id
         known = state["docs"]
         result = {"added": 0, "updated": 0, "unchanged": 0, "removed": 0, "skipped": 0, "errors": []}
 

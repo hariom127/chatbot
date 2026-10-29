@@ -3,6 +3,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 
 from app.services import google_drive, indexer
+from app.services.embeddings import EmbeddingError
 from app.services.google_drive import DriveError
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ def sync():
     try:
         docs = google_drive.fetch_documents(with_text=True)
         return indexer.sync_documents(docs)
-    except DriveError as exc:
+    except (DriveError, EmbeddingError) as exc:
         raise HTTPException(status_code=502, detail=str(exc))
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
