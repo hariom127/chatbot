@@ -34,4 +34,4 @@ backend/data/
 .DS_Store
 
 # Local planning notes
-AI_CHATBOT_STEP_BY_STEP_PLAN.md
+plan/
